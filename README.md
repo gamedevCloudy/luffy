@@ -18,7 +18,8 @@ Before using Luffy, ensure you have the following installed on your system:
 1.  **Go** (v1.21+ recommended) - To build the application.
 2.  **Media Player**:
     -   **Linux/Windows**: [mpv](https://mpv.io/)
-    -   **macOS**: [iina](https://iina.io/) (or `mpv`)
+    -   **macOS**: [iina](https://iina.io/)
+    - **Android** [vlc](https://play.google.com/store/apps/details?id=org.videolan.vlc)
 3.  **Downloader**:
     -   [yt-dlp](https://github.com/yt-dlp/yt-dlp) - Required for downloading content.
 
