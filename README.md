@@ -84,6 +84,15 @@ Download episodes 1 through 5 of Season 2:
 luffy "stranger things" -s 2 -e 1-5 -a download
 ```
 
+
+# Support
+You can contact the developer directly via this <a href="mailto:swarn@demonkingswarn.live">email</a>. However, the most recommended way is to head to the discord server.
+
+<a href="https://discord.gg/JF85vTkDyC"><img src="https://invidget.switchblade.xyz/JF85vTkDyC"></a>
+
+If you run into issues or want to request a new feature, you are encouraged to make a GitHub issue, won't bite you, trust me.
+
+
 ## Provider
 
 | Website | Available Qualities | Content |
