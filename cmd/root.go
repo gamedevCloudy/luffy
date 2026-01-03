@@ -24,6 +24,7 @@ func init() {
 var rootCmd = &cobra.Command{
 	Use:   "luffy [query]",
 	Short: "Watch movies and TV shows from the commandline",
+	Version: core.Version,
 	Args:  cobra.ArbitraryArgs,
 
 	RunE: func(cmd *cobra.Command, args []string) error {
