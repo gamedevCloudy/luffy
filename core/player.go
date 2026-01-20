@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var mpv_executable string = "mpv"
+
 func checkAndroid() bool {
 	cmd := exec.Command("uname", "-o")
 	output, err := cmd.Output()
@@ -18,6 +20,13 @@ func checkAndroid() bool {
 }
 
 func Play(url, title, referer string, subtitles []string) error {
+	
+	if runtime.GOOS == "windows" {
+		mpv_executable = "mpv.exe"
+	} else {
+		mpv_executable = "mpv"
+	}
+
 	var cmd *exec.Cmd
 
 	if checkAndroid() {
@@ -58,16 +67,22 @@ func Play(url, title, referer string, subtitles []string) error {
 		cmd = exec.Command("iina", args...)
 
 	default:
-		args := []string{
-			url,
-			fmt.Sprintf("--referrer=%s", referer),
-			fmt.Sprintf("--force-media-title=Playing %s", title),
+		cfg := LoadConfig()
+		if cfg.Player == "mpv" {
+			args := []string{
+				url,
+				fmt.Sprintf("--referrer=%s", referer),
+				fmt.Sprintf("--force-media-title=Playing %s", title),
+			}
+			for _, sub := range subtitles {
+				args = append(args, fmt.Sprintf("--sub-file=%s", sub))
+			}
+
+			cmd = exec.Command(mpv_executable, args...)
 		}
-		for _, sub := range subtitles {
-			args = append(args, fmt.Sprintf("--sub-file=%s", sub))
-		}
-		cmd = exec.Command("mpv", args...)
-		// Output silenced
+
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
 
 	fmt.Printf("Starting player for %s...\n", title)

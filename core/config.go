@@ -9,11 +9,13 @@ import (
 
 type Config struct {
 	FzfPath string
+	Player  string
 }
 
 func LoadConfig() *Config {
 	config := &Config{
 		FzfPath: "fzf", // Default
+		Player:  "mpv", // Default player
 	}
 
 	home, err := os.UserHomeDir()
@@ -43,6 +45,8 @@ func LoadConfig() *Config {
 
 			if key == "fzf_path" {
 				config.FzfPath = value
+			} else if key == "player" {
+				config.Player = value
 			}
 		}
 	}

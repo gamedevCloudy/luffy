@@ -195,13 +195,13 @@ var rootCmd = &cobra.Command{
 
 			switch currentAction {
 			case "play":
-				err = core.Play(streamURL, ctx.Title, core.FLIXHQ_BASE_URL, subtitles)
+				err = core.Play(streamURL, ctx.Title, link, subtitles)
 				if err != nil {
 					fmt.Println("Error playing:", err)
 				}
 			case "download":
 				homeDir, _ := os.UserHomeDir()
-				err = core.Download(homeDir, ctx.Title, streamURL, core.FLIXHQ_BASE_URL, subtitles)
+				err = core.Download(homeDir, ctx.Title, streamURL, link, subtitles)
 				if err != nil {
 					fmt.Println("Error downloading:", err)
 				}
@@ -247,13 +247,13 @@ var rootCmd = &cobra.Command{
 
 				switch currentAction {
 				case "play":
-					err = core.Play(streamURL, ctx.Title+" - "+ep.Name, core.FLIXHQ_BASE_URL, subtitles)
+					err = core.Play(streamURL, ctx.Title+" - "+ep.Name, link, subtitles)
 					if err != nil {
 						fmt.Println("Error playing:", err)
 					}
 				case "download":
 					homeDir, _ := os.UserHomeDir()
-					err = core.Download(homeDir, ctx.Title+" - "+ep.Name, streamURL, core.FLIXHQ_BASE_URL, subtitles)
+					err = core.Download(homeDir, ctx.Title+" - "+ep.Name, streamURL, link, subtitles)
 					if err != nil {
 						fmt.Println("Error downloading:", err)
 					}
