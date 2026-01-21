@@ -37,10 +37,10 @@
 ## Overview
 
 - [Installation](#installation)
-    - [AUR (Arch Linux)](#1-aur-arch-linux)
-    - [Flake (NixOS)](#2-flake-nixos)
-    - [Homebrew (MacOS)](#3-homebrew-macos)
-    - [Scoop (Windows)](#4-scoop-windows)
+    - [Arch Linux](#1-arch-linux)
+    - [Debian Linux](#2-debian-linux)
+    - [MacOS](#3-macos)
+    - [Windows](#4-windows)
     - [Go Install](#5-go-install)
     - [Build from Source](#6-build-from-source)
     - [Android Installation](#7-android-installation)
@@ -50,35 +50,19 @@
 
 ## Installation
 
-### 1. AUR (Arch Linux)
+### 1. Arch Linux
 
 ```sh
 paru -S luffy-bin
 ```
 
-### 2. Flake (NixOS)
+### 2. Debian Linux
 
-Add this to your flake.nix
-
-```nix
-inputs.luffy.url = "github:demonkingswarn/luffy";
+```sh
+curl -sL "https://github.com/DemonKingSwarn/luffy/raw/refs/heads/master/luffy_debian_installer.sh" | bash
 ```
 
-Add this to configuration.nix
-
-```nix
-environment.systemPackages = [
-    inputs.luffy.packages.<architecture>.luffy
-];
-```
-
-Or for run the script once, use
-
-```nix
-nix run github:demonkingswarn/luffy#luffy
-```
-
-### 3. Homebrew (MacOS)
+### 3. MacOS
 
 ```sh
 brew tap gamedevCloudy/tools
@@ -86,7 +70,7 @@ brew install --cask iina
 brew install luffy
 ```
 
-### 4. Scoop (Windows)
+### 4. Windows
 
 Make sure you have [scoop.sh](https://scoop.sh) installed on your system.
 
