@@ -37,11 +37,12 @@
 ## Overview
 
 - [Installation](#installation)
-    - [AUR](#1-aur-arch-linux) 
-    - [Homebrew](#2-homebrew-macos)
-    - [Go Install](#3-go-install)
-    - [Build from Source](#4-build-from-source)
-    - [Android Installation](#5-android-installation)
+    - [AUR (Arch Linux)](#1-aur-arch-linux) 
+    - [Homebrew (MacOS)](#2-homebrew-macos)
+    - [Scoop (Windows)](#3-scoop-windows)
+    - [Go Install](#4-go-install)
+    - [Build from Source](#5-build-from-source)
+    - [Android Installation](#6-android-installation)
 - [Dependencies](#dependencies)
 - [Usage](#usage)
 - [Support](#support)
@@ -62,7 +63,20 @@ brew install --cask iina
 brew install luffy
 ```
 
-### 3. Go Install
+### 3. Scoop (Windows)
+
+Make sure you have [scoop.sh](https://scoop.sh) installed on your system.
+
+```sh
+scoop bucket add demon-apps https://github.com/DemonKingSwarn/flix-cli-bucket.git
+scoop bucket add extras
+scoop install luffy
+```
+
+> [!IMPORTANT]
+> On windows if you want to use the `--show-image`, you need to use the `wezterm` terminal emulator. It is installed as a dependency on windows.
+
+### 4. Go Install
 
 If you have Go installed, you can easily install Luffy:
 
@@ -70,7 +84,7 @@ If you have Go installed, you can easily install Luffy:
 go install github.com/demonkingswarn/luffy@v1.0.6
 ```
 
-### 4. Build from Source
+### 5. Build from Source
 
 1.  Clone the repository:
     ```bash
@@ -84,7 +98,7 @@ go install github.com/demonkingswarn/luffy@v1.0.6
     ```
     *Ensure your `$GOPATH/bin` is in your system's `PATH`.*
 
-### 5. Android Installation
+### 6. Android Installation
 
 Install termux [(Guide)](https://termux.com/)
 
