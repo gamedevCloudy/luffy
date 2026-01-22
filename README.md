@@ -47,6 +47,7 @@
 - [Dependencies](#dependencies)
 - [Usage](#usage)
 - [Support](#support)
+- [Providers](#providers)
 
 ## Installation
 
