@@ -19,6 +19,8 @@ var (
 	showImageFlag bool
 )
 
+const USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+
 func init() {
 	rootCmd.Flags().IntVarP(&seasonFlag, "season", "s", 0, "Specify season number")
 	rootCmd.Flags().StringVarP(&episodeFlag, "episodes", "e", "", "Specify episode or range (e.g. 1, 1-5)")
@@ -46,6 +48,8 @@ var rootCmd = &cobra.Command{
 			provider = providers.NewHDRezka(client)
 		} else if strings.EqualFold(cfg.Provider, "braflix") {
 			provider = providers.NewBraflix(client)
+		} else if strings.EqualFold(cfg.Provider, "brocoflix") {
+			provider = providers.NewBrocoflix(client)
 		} else {
 			provider = providers.NewFlixHQ(client)
 		}
@@ -93,7 +97,6 @@ var rootCmd = &cobra.Command{
 		ctx.ContentType = selected.Type
 
 		if showImageFlag {
-			// Clean cache after selection is made and we don't need previews anymore
 			go core.CleanCache()
 		}
 
@@ -160,17 +163,13 @@ var rootCmd = &cobra.Command{
 			}
 
 		} else {
-			// Movie logic
-			// For movies, GetEpisodes returns the list of servers directly
 			servers, err := provider.GetEpisodes(mediaID, false)
 			if err != nil || len(servers) == 0 {
 				return fmt.Errorf("could not find movie info")
 			}
-			// Store the servers in episodesToProcess temporarily, but treat them as servers later
 			episodesToProcess = servers
 		}
 
-		// Determine action
 		currentAction := actionFlag
 		if currentAction == "" {
 			actions := []string{"Play", "Download"}
@@ -183,10 +182,13 @@ var rootCmd = &cobra.Command{
 			var streamURL string
 			var subtitles []string
 			var err error
+			
+			referer := link
+			if strings.EqualFold(cfg.Provider, "hdrezka") {
+				referer = ctx.URL
+			}
 
 			if strings.EqualFold(cfg.Provider, "hdrezka") {
-				// Parse HDRezka multi-quality string: [360p]url,[480p]url...
-				// We want the best quality
 				streams := strings.Split(link, ",")
 				bestQuality := 0
 				for _, s := range streams {
@@ -203,14 +205,12 @@ var rootCmd = &cobra.Command{
 							}
 						}
 					} else {
-						// No quality tag? assume it's the url
 						if streamURL == "" {
 							streamURL = s
 						}
 					}
 				}
 				if streamURL == "" {
-					// Fallback to raw link
 					streamURL = link
 				}
 				// Fix protocol if needed
@@ -219,22 +219,27 @@ var rootCmd = &cobra.Command{
 				}
 			} else {
 				fmt.Println("Decrypting stream...")
-				streamURL, subtitles, err = core.DecryptStream(link, ctx.Client)
+				var decryptedReferer string
+				streamURL, subtitles, decryptedReferer, err = core.DecryptStream(link, ctx.Client)
 				if err != nil {
 					fmt.Printf("Decryption failed for %s: %v\n", name, err)
 					return
+				}
+				if decryptedReferer != "" {
+					referer = decryptedReferer
 				}
 			}
 
 			switch currentAction {
 			case "play":
-				err = core.Play(streamURL, name, link, subtitles)
+				fmt.Printf("Stream URL: %s\n", streamURL)
+				err = core.Play(streamURL, name, referer, USER_AGENT, subtitles)
 				if err != nil {
 					fmt.Println("Error playing:", err)
 				}
 			case "download":
 				homeDir, _ := os.UserHomeDir()
-				err = core.Download(homeDir, name, streamURL, link, subtitles)
+				err = core.Download(homeDir, name, streamURL, referer, USER_AGENT, subtitles)
 				if err != nil {
 					fmt.Println("Error downloading:", err)
 				}
@@ -244,21 +249,15 @@ var rootCmd = &cobra.Command{
 		}
 
 		if ctx.ContentType == core.Movie {
-			// Movie Processing
 			fmt.Printf("\nProcessing: %s\n", ctx.Title)
 
-			// episodesToProcess contains servers for movies
 			var selectedServer core.Episode // abusing Episode struct for Server info
 			if len(episodesToProcess) > 0 {
 				selectedServer = episodesToProcess[0]
 			}
 			
-			// Find preferred server
 			for _, s := range episodesToProcess {
-				// Prefer VidCloud for non-hdrezka, or maybe Default for hdrezka
 				if strings.EqualFold(cfg.Provider, "hdrezka") {
-					// Just pick first or specific one? HDRezka usually has specific translator names.
-					// Let's stick to default (0)
 					selectedServer = s
 					break
 				}

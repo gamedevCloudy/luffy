@@ -214,11 +214,12 @@ func (s *Sflix) GetLink(serverID string) (string, error) {
 	defer resp.Body.Close()
 
 	var res struct {
+		Type string `json:"type"`
 		Link string `json:"link"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
 		return "", err
 	}
-	//fmt.Printf("DEBUG: Embedded URL: %s\n", res.Link)
+	
 	return res.Link, nil
 }
