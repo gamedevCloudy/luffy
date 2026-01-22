@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -36,7 +37,16 @@ var rootCmd = &cobra.Command{
 		ctx := &core.Context{
 			Client: client,
 		}
-		provider := providers.NewFlixHQ(client)
+
+		cfg := core.LoadConfig()
+		var provider core.Provider
+		if strings.EqualFold(cfg.Provider, "sflix") {
+			provider = providers.NewSflix(client)
+		} else if strings.EqualFold(cfg.Provider, "hdrezka") {
+			provider = providers.NewHDRezka(client)
+		} else {
+			provider = providers.NewFlixHQ(client)
+		}
 
 		if len(args) == 0 {
 			ctx.Query = core.Prompt("Search")
@@ -167,6 +177,70 @@ var rootCmd = &cobra.Command{
 		}
 		currentAction = strings.ToLower(currentAction)
 
+		processStream := func(link, name string) {
+			var streamURL string
+			var subtitles []string
+			var err error
+
+			if strings.EqualFold(cfg.Provider, "hdrezka") {
+				// Parse HDRezka multi-quality string: [360p]url,[480p]url...
+				// We want the best quality
+				streams := strings.Split(link, ",")
+				bestQuality := 0
+				for _, s := range streams {
+					s = strings.TrimSpace(s)
+					if strings.HasPrefix(s, "[") {
+						end := strings.Index(s, "]")
+						if end > 1 {
+							qualityStr := s[1:end]
+							qualityStr = strings.TrimSuffix(qualityStr, "p")
+							q, _ := strconv.Atoi(qualityStr)
+							if q > bestQuality {
+								bestQuality = q
+								streamURL = s[end+1:]
+							}
+						}
+					} else {
+						// No quality tag? assume it's the url
+						if streamURL == "" {
+							streamURL = s
+						}
+					}
+				}
+				if streamURL == "" {
+					// Fallback to raw link
+					streamURL = link
+				}
+				// Fix protocol if needed
+				if !strings.HasPrefix(streamURL, "http") {
+					// Sometimes it might be missing http
+				}
+			} else {
+				fmt.Println("Decrypting stream...")
+				streamURL, subtitles, err = core.DecryptStream(link, ctx.Client)
+				if err != nil {
+					fmt.Printf("Decryption failed for %s: %v\n", name, err)
+					return
+				}
+			}
+
+			switch currentAction {
+			case "play":
+				err = core.Play(streamURL, name, link, subtitles)
+				if err != nil {
+					fmt.Println("Error playing:", err)
+				}
+			case "download":
+				homeDir, _ := os.UserHomeDir()
+				err = core.Download(homeDir, name, streamURL, link, subtitles)
+				if err != nil {
+					fmt.Println("Error downloading:", err)
+				}
+			default:
+				fmt.Println("Unknown action:", currentAction)
+			}
+		}
+
 		if ctx.ContentType == core.Movie {
 			// Movie Processing
 			fmt.Printf("\nProcessing: %s\n", ctx.Title)
@@ -179,6 +253,13 @@ var rootCmd = &cobra.Command{
 			
 			// Find preferred server
 			for _, s := range episodesToProcess {
+				// Prefer VidCloud for non-hdrezka, or maybe Default for hdrezka
+				if strings.EqualFold(cfg.Provider, "hdrezka") {
+					// Just pick first or specific one? HDRezka usually has specific translator names.
+					// Let's stick to default (0)
+					selectedServer = s
+					break
+				}
 				if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
 					selectedServer = s
 					break
@@ -190,27 +271,7 @@ var rootCmd = &cobra.Command{
 				return fmt.Errorf("error getting link: %v", err)
 			}
 
-			fmt.Println("Decrypting stream...")
-			streamURL, subtitles, err := core.DecryptStream(link, ctx.Client)
-			if err != nil {
-				return fmt.Errorf("decryption failed: %v", err)
-			}
-
-			switch currentAction {
-			case "play":
-				err = core.Play(streamURL, ctx.Title, link, subtitles)
-				if err != nil {
-					fmt.Println("Error playing:", err)
-				}
-			case "download":
-				homeDir, _ := os.UserHomeDir()
-				err = core.Download(homeDir, ctx.Title, streamURL, link, subtitles)
-				if err != nil {
-					fmt.Println("Error downloading:", err)
-				}
-			default:
-				fmt.Println("Unknown action:", currentAction)
-			}
+			processStream(link, ctx.Title)
 
 		} else {
 			// Series Processing
@@ -228,10 +289,12 @@ var rootCmd = &cobra.Command{
 				}
 
 				selectedServer := servers[0]
-				for _, s := range servers {
-					if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
-						selectedServer = s
-						break
+				if !strings.EqualFold(cfg.Provider, "hdrezka") {
+					for _, s := range servers {
+						if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
+							selectedServer = s
+							break
+						}
 					}
 				}
 
@@ -241,33 +304,13 @@ var rootCmd = &cobra.Command{
 					continue
 				}
 
-				fmt.Println("Decrypting stream...")
-				streamURL, subtitles, err := core.DecryptStream(link, ctx.Client)
-				if err != nil {
-					fmt.Printf("Decryption failed for %s: %v\n", ep.Name, err)
-					continue
-				}
-
-				switch currentAction {
-				case "play":
-					err = core.Play(streamURL, ctx.Title+" - "+ep.Name, link, subtitles)
-					if err != nil {
-						fmt.Println("Error playing:", err)
-					}
-				case "download":
-					homeDir, _ := os.UserHomeDir()
-					err = core.Download(homeDir, ctx.Title+" - "+ep.Name, streamURL, link, subtitles)
-					if err != nil {
-						fmt.Println("Error downloading:", err)
-					}
-				default:
-					fmt.Println("Unknown action:", currentAction)
-				}
+				processStream(link, ctx.Title+" - "+ep.Name)
 			}
 		}
 
 		return nil
 	},
+
 }
 
 func Execute() {
