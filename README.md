@@ -88,7 +88,7 @@ scoop install luffy
 If you have Go installed, you can easily install Luffy:
 
 ```bash
-go install github.com/demonkingswarn/luffy@v1.0.6
+go install github.com/demonkingswarn/luffy@v1.0.7
 ```
 
 ### 6. Build from Source
