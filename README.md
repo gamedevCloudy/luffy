@@ -189,3 +189,36 @@ You can contact the developer directly via this <a href="mailto:swarn@demonkings
 
 If you run into issues or want to request a new feature, you are encouraged to make a GitHub issue, won't bite you, trust me.
 
+
+# Providers
+
+Luffy uses 2 main providers, which you can easily change between by specifying them in the config file: `$HOME/.config/luffy/conf`
+
+- flixhq:
+    ```conf
+    provider = "flixhq"
+    ```
+- brocoflix:
+    ```conf
+    provider = "brocoflix"
+    ```
+    **NOTE**: `brocoflix` doesn't return any subtitle urls, but the brocoflix quality is much better.
+
+There are three experimental providers, using these may not always work. These are:
+
+- sflix:
+    ```conf
+    provider = "sflix"
+    ```
+
+- braflix:
+    ```conf
+    provider = "braflix"
+    ```
+
+- hdrezka:
+    ```conf
+    provider = "hdrezka"
+    ```
+
+Also note that `flixhq` is the default provider.

@@ -24,6 +24,7 @@ type SearchResult struct {
 	URL    string
 	Type   MediaType
 	Poster string
+	Year   string
 }
 
 type Season struct {

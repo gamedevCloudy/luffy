@@ -10,15 +10,19 @@ import (
 	"strings"
 )
 
-func Download(basePath, name, url, referer string, subtitles []string) error {
-	dlPath := filepath.Join(basePath, "Downloads", "luffy")
+func Download(basePath, dlPath, name, url, referer, userAgent string, subtitles []string) error {
+	if dlPath == "" {
+		dlPath = filepath.Join(basePath, "Downloads", "luffy")
+	} else {
+		dlPath = filepath.Join(dlPath, "luffy")
+	}
 	if err := os.MkdirAll(dlPath, 0755); err != nil {
 		return err
 	}
 
 	cleanName := strings.ReplaceAll(name, " ", "-")
 	cleanName = strings.ReplaceAll(cleanName, "\"", "")
-	
+
 	outputTemplate := filepath.Join(dlPath, cleanName+".mp4")
 
 	args := []string{
@@ -28,6 +32,7 @@ func Download(basePath, name, url, referer string, subtitles []string) error {
 		"-N", "16",
 		"-o", outputTemplate,
 		"--referer", referer,
+		"--user-agent", userAgent,
 	}
 
 	fmt.Printf("Downloading to %s...\n", outputTemplate)
@@ -40,12 +45,23 @@ func Download(basePath, name, url, referer string, subtitles []string) error {
 	}
 
 	if len(subtitles) > 0 {
-		subURL := subtitles[0]
-		subPath := filepath.Join(dlPath, cleanName+".vtt")
-		
-		fmt.Printf("Downloading subtitle to %s...\n", subPath)
-		if err := downloadFile(subURL, subPath); err != nil {
-			fmt.Printf("Failed to download subtitle: %v\n", err)
+		for i, subURL := range subtitles {
+			ext := ".vtt"
+			if strings.HasSuffix(subURL, ".srt") {
+				ext = ".srt"
+			}
+
+			subPath := filepath.Join(dlPath, cleanName)
+			if i > 0 {
+				subPath += fmt.Sprintf(".eng%d%s", i, ext)
+			} else {
+				subPath += ".eng" + ext
+			}
+
+			fmt.Printf("Downloading subtitle to %s...\n", subPath)
+			if err := downloadFile(subURL, subPath); err != nil {
+				fmt.Printf("Failed to download subtitle: %v\n", err)
+			}
 		}
 	}
 
@@ -54,11 +70,16 @@ func Download(basePath, name, url, referer string, subtitles []string) error {
 }
 
 func downloadFile(url, filepath string) error {
-	resp, err := http.Get(url)
+	client := NewClient()
+	resp, err := client.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
 
 	out, err := os.Create(filepath)
 	if err != nil {

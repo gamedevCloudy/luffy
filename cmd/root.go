@@ -3,19 +3,23 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/demonkingswarn/luffy/core"
+	"github.com/demonkingswarn/luffy/core/providers"
 	"github.com/spf13/cobra"
 )
 
 var (
-	seasonFlag   int
-	episodeFlag  string
-	actionFlag   string
+	seasonFlag    int
+	episodeFlag   string
+	actionFlag    string
 	showImageFlag bool
 )
+
+const USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 func init() {
 	rootCmd.Flags().IntVarP(&seasonFlag, "season", "s", 0, "Specify season number")
@@ -25,15 +29,29 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "luffy [query]",
-	Short: "Watch movies and TV shows from the commandline",
+	Use:     "luffy [query]",
+	Short:   "Watch movies and TV shows from the commandline",
 	Version: core.Version,
-	Args:  cobra.ArbitraryArgs,
+	Args:    cobra.ArbitraryArgs,
 
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client := core.NewClient()
 		ctx := &core.Context{
 			Client: client,
+		}
+
+		cfg := core.LoadConfig()
+		var provider core.Provider
+		if strings.EqualFold(cfg.Provider, "sflix") {
+			provider = providers.NewSflix(client)
+		} else if strings.EqualFold(cfg.Provider, "hdrezka") {
+			provider = providers.NewHDRezka(client)
+		} else if strings.EqualFold(cfg.Provider, "braflix") {
+			provider = providers.NewBraflix(client)
+		} else if strings.EqualFold(cfg.Provider, "brocoflix") {
+			provider = providers.NewBrocoflix(client)
+		} else {
+			provider = providers.NewFlixHQ(client)
 		}
 
 		if len(args) == 0 {
@@ -42,7 +60,7 @@ var rootCmd = &cobra.Command{
 			ctx.Query = strings.Join(args, " ")
 		}
 
-		results, err := core.SearchContent(ctx.Query, ctx.Client)
+		results, err := provider.Search(ctx.Query)
 		if err != nil {
 			return err
 		}
@@ -79,13 +97,12 @@ var rootCmd = &cobra.Command{
 		ctx.ContentType = selected.Type
 
 		if showImageFlag {
-			// Clean cache after selection is made and we don't need previews anymore
 			go core.CleanCache()
 		}
 
 		fmt.Println("Selected:", ctx.Title)
 
-		mediaID, err := core.GetMediaID(ctx.URL, ctx.Client)
+		mediaID, err := provider.GetMediaID(ctx.URL)
 		if err != nil {
 			return err
 		}
@@ -93,7 +110,7 @@ var rootCmd = &cobra.Command{
 		var episodesToProcess []core.Episode
 
 		if ctx.ContentType == core.Series {
-			seasons, err := core.GetSeasons(mediaID, ctx.Client)
+			seasons, err := provider.GetSeasons(mediaID)
 			if err != nil {
 				return err
 			}
@@ -116,7 +133,7 @@ var rootCmd = &cobra.Command{
 				selectedSeason = seasons[sIdx]
 			}
 
-			allEpisodes, err := core.GetEpisodes(selectedSeason.ID, true, ctx.Client)
+			allEpisodes, err := provider.GetEpisodes(selectedSeason.ID, true)
 			if err != nil {
 				return err
 			}
@@ -146,17 +163,13 @@ var rootCmd = &cobra.Command{
 			}
 
 		} else {
-			// Movie logic
-			// For movies, GetEpisodes returns the list of servers directly
-			servers, err := core.GetEpisodes(mediaID, false, ctx.Client)
+			servers, err := provider.GetEpisodes(mediaID, false)
 			if err != nil || len(servers) == 0 {
 				return fmt.Errorf("could not find movie info")
 			}
-			// Store the servers in episodesToProcess temporarily, but treat them as servers later
 			episodesToProcess = servers
 		}
 
-		// Determine action
 		currentAction := actionFlag
 		if currentAction == "" {
 			actions := []string{"Play", "Download"}
@@ -165,57 +178,112 @@ var rootCmd = &cobra.Command{
 		}
 		currentAction = strings.ToLower(currentAction)
 
-		if ctx.ContentType == core.Movie {
-			// Movie Processing
-			fmt.Printf("\nProcessing: %s\n", ctx.Title)
+		processStream := func(link, name string) {
+			var streamURL string
+			var subtitles []string
+			var err error
 
-			// episodesToProcess contains servers for movies
-			var selectedServer core.Episode // abusing Episode struct for Server info
-			if len(episodesToProcess) > 0 {
-				selectedServer = episodesToProcess[0]
+			referer := link
+			if strings.EqualFold(cfg.Provider, "hdrezka") {
+				referer = ctx.URL
 			}
-			
-			// Find preferred server
-			for _, s := range episodesToProcess {
-				if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
-					selectedServer = s
-					break
+
+			if strings.EqualFold(cfg.Provider, "hdrezka") {
+				streams := strings.Split(link, ",")
+				bestQuality := 0
+				for _, s := range streams {
+					s = strings.TrimSpace(s)
+					if strings.HasPrefix(s, "[") {
+						end := strings.Index(s, "]")
+						if end > 1 {
+							qualityStr := s[1:end]
+							qualityStr = strings.TrimSuffix(qualityStr, "p")
+							q, _ := strconv.Atoi(qualityStr)
+							if q > bestQuality {
+								bestQuality = q
+								streamURL = s[end+1:]
+							}
+						}
+					} else {
+						if streamURL == "" {
+							streamURL = s
+						}
+					}
 				}
-			}
-
-			link, err := core.GetLink(selectedServer.ID, ctx.Client)
-			if err != nil {
-				return fmt.Errorf("error getting link: %v", err)
-			}
-
-			fmt.Println("Decrypting stream...")
-			streamURL, subtitles, err := core.DecryptStream(link, ctx.Client)
-			if err != nil {
-				return fmt.Errorf("decryption failed: %v", err)
+				if streamURL == "" {
+					streamURL = link
+				}
+				// Fix protocol if needed
+				if !strings.HasPrefix(streamURL, "http") {
+					// Sometimes it might be missing http
+				}
+			} else {
+				fmt.Println("Decrypting stream...")
+				var decryptedReferer string
+				streamURL, subtitles, decryptedReferer, err = core.DecryptStream(link, ctx.Client)
+				if err != nil {
+					fmt.Printf("Decryption failed for %s: %v\n", name, err)
+					return
+				}
+				if decryptedReferer != "" {
+					referer = decryptedReferer
+				}
 			}
 
 			switch currentAction {
 			case "play":
-				err = core.Play(streamURL, ctx.Title, link, subtitles)
+				fmt.Printf("Stream URL: %s\n", streamURL)
+				err = core.Play(streamURL, name, referer, USER_AGENT, subtitles)
 				if err != nil {
 					fmt.Println("Error playing:", err)
 				}
 			case "download":
+				dlPath := cfg.DlPath
 				homeDir, _ := os.UserHomeDir()
-				err = core.Download(homeDir, ctx.Title, streamURL, link, subtitles)
+				if dlPath == "" {
+					dlPath = homeDir
+				}
+				err = core.Download(homeDir, dlPath, name, streamURL, referer, USER_AGENT, subtitles)
 				if err != nil {
 					fmt.Println("Error downloading:", err)
 				}
 			default:
 				fmt.Println("Unknown action:", currentAction)
 			}
+		}
+
+		if ctx.ContentType == core.Movie {
+			fmt.Printf("\nProcessing: %s\n", ctx.Title)
+
+			var selectedServer core.Episode // abusing Episode struct for Server info
+			if len(episodesToProcess) > 0 {
+				selectedServer = episodesToProcess[0]
+			}
+
+			for _, s := range episodesToProcess {
+				if strings.EqualFold(cfg.Provider, "hdrezka") {
+					selectedServer = s
+					break
+				}
+				if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
+					selectedServer = s
+					break
+				}
+			}
+
+			link, err := provider.GetLink(selectedServer.ID)
+			if err != nil {
+				return fmt.Errorf("error getting link: %v", err)
+			}
+
+			processStream(link, ctx.Title)
 
 		} else {
 			// Series Processing
 			for _, ep := range episodesToProcess {
 				fmt.Printf("\nProcessing: %s\n", ep.Name)
 
-				servers, err := core.GetServers(ep.ID, ctx.Client)
+				servers, err := provider.GetServers(ep.ID)
 				if err != nil {
 					fmt.Println("Error fetching servers:", err)
 					continue
@@ -226,41 +294,22 @@ var rootCmd = &cobra.Command{
 				}
 
 				selectedServer := servers[0]
-				for _, s := range servers {
-					if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
-						selectedServer = s
-						break
+				if !strings.EqualFold(cfg.Provider, "hdrezka") {
+					for _, s := range servers {
+						if strings.Contains(strings.ToLower(s.Name), "vidcloud") {
+							selectedServer = s
+							break
+						}
 					}
 				}
 
-				link, err := core.GetLink(selectedServer.ID, ctx.Client)
+				link, err := provider.GetLink(selectedServer.ID)
 				if err != nil {
 					fmt.Println("Error getting link:", err)
 					continue
 				}
 
-				fmt.Println("Decrypting stream...")
-				streamURL, subtitles, err := core.DecryptStream(link, ctx.Client)
-				if err != nil {
-					fmt.Printf("Decryption failed for %s: %v\n", ep.Name, err)
-					continue
-				}
-
-				switch currentAction {
-				case "play":
-					err = core.Play(streamURL, ctx.Title+" - "+ep.Name, link, subtitles)
-					if err != nil {
-						fmt.Println("Error playing:", err)
-					}
-				case "download":
-					homeDir, _ := os.UserHomeDir()
-					err = core.Download(homeDir, ctx.Title+" - "+ep.Name, streamURL, link, subtitles)
-					if err != nil {
-						fmt.Println("Error downloading:", err)
-					}
-				default:
-					fmt.Println("Unknown action:", currentAction)
-				}
+				processStream(link, ctx.Title+" - "+ep.Name)
 			}
 		}
 
@@ -273,4 +322,3 @@ func Execute() {
 		fmt.Println(err)
 	}
 }
-

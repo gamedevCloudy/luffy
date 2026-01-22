@@ -19,7 +19,7 @@ func checkAndroid() bool {
 	return strings.TrimSpace(string(output)) == "Android"
 }
 
-func Play(url, title, referer string, subtitles []string) error {
+func Play(url, title, referer, userAgent string, subtitles []string) error {
 	
 	if runtime.GOOS == "windows" {
 		mpv_executable = "mpv.exe"
@@ -58,6 +58,7 @@ func Play(url, title, referer string, subtitles []string) error {
 			"--no-stdin",
 			"--keep-running",
 			fmt.Sprintf("--mpv-referrer=%s", referer),
+			fmt.Sprintf("--mpv-user-agent=%s", userAgent),
 			url,
 			fmt.Sprintf("--mpv-force-media-title=Playing %s", title),
 		}
@@ -72,17 +73,26 @@ func Play(url, title, referer string, subtitles []string) error {
 			args := []string{
 				url,
 				fmt.Sprintf("--referrer=%s", referer),
+				fmt.Sprintf("--user-agent=%s", userAgent),
 				fmt.Sprintf("--force-media-title=Playing %s", title),
 			}
 			for _, sub := range subtitles {
-				args = append(args, fmt.Sprintf("--sub-file=%s", sub))
+				if sub != "" {
+					args = append(args, fmt.Sprintf("--sub-file=%s", sub))
+				}
 			}
 
 			cmd = exec.Command(mpv_executable, args...)
 		}
+	}
 
+	if cmd != nil {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
+	}
+
+	if len(subtitles) > 0 {
+		fmt.Printf("Subtitles found: %d\n", len(subtitles))
 	}
 
 	fmt.Printf("Starting player for %s...\n", title)
