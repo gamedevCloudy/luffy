@@ -89,7 +89,7 @@ scoop install luffy
 If you have Go installed, you can easily install Luffy:
 
 ```bash
-go install github.com/demonkingswarn/luffy@v1.0.7
+go install github.com/demonkingswarn/luffy@v1.0.8
 ```
 
 ### 6. Build from Source
@@ -113,7 +113,7 @@ Install termux [(Guide)](https://termux.com/)
 ```sh
 pkg up -y
 pkg in golang fzf python-yt-dlp
-go install github.com/demonkingswarn/luffy@v1.0.7
+go install github.com/demonkingswarn/luffy@v1.0.8
 ```
 
 
@@ -193,7 +193,7 @@ If you run into issues or want to request a new feature, you are encouraged to m
 
 # Providers
 
-Luffy uses 2 main providers, which you can easily change between by specifying them in the config file: `$HOME/.config/luffy/conf`
+Luffy uses three main providers, which you can easily change between by specifying them in the config file: `$HOME/.config/luffy/conf`
 
 - flixhq:
     ```conf
@@ -203,7 +203,11 @@ Luffy uses 2 main providers, which you can easily change between by specifying t
     ```conf
     provider = "brocoflix"
     ```
-    **NOTE**: `brocoflix` doesn't return any subtitle urls, but the brocoflix quality is much better.
+- xprime:
+    ```conf
+    provider = "xprime"
+    ```
+    **NOTE**: `brocoflix` & `xprime` doesn't return any subtitle urls, but their quality is much better.
 
 There are three experimental providers, using these may not always work. These are:
 
