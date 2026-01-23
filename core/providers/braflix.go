@@ -230,7 +230,7 @@ func (b *Braflix) GetServers(episodeID string) ([]core.Server, error) {
 	}
 
 	var servers []core.Server
-	doc.Find("a.link-item").Each(func(i int, s *goquery.Selection) {
+	doc.Find(".link-item").Each(func(i int, s *goquery.Selection) {
 		srvID := s.AttrOr("data-id", "")
 		name := strings.TrimSpace(s.Find("span").Text())
 		if name == "" {

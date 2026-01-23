@@ -11,25 +11,25 @@ import (
 )
 
 const (
-	BROCOFLIX_BASE_URL = "https://brocoflix.xyz"
+	XPRIME_BASE_URL = "https://xprime.today"
 )
 
-type Brocoflix struct {
+type XPrime struct {
 	Client *http.Client
 }
 
-func NewBrocoflix(client *http.Client) *Brocoflix {
-	return &Brocoflix{Client: client}
+func NewXPrime(client *http.Client) *XPrime {
+	return &XPrime{Client: client}
 }
 
-func (b *Brocoflix) Search(query string) ([]core.SearchResult, error) {
+func (x *XPrime) Search(query string) ([]core.SearchResult, error) {
 	u, _ := url.Parse(core.TMDB_BASE_URL + "/search/multi")
 	q := u.Query()
 	q.Set("api_key", core.TMDB_API_KEY)
 	q.Set("query", query)
 	u.RawQuery = q.Encode()
 
-	resp, err := b.Client.Get(u.String())
+	resp, err := x.Client.Get(u.String())
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (b *Brocoflix) Search(query string) ([]core.SearchResult, error) {
 			mediaType = core.Series
 		}
 
-		resURL := fmt.Sprintf("%s/pages/info.html?id=%d&type=%s", BROCOFLIX_BASE_URL, item.ID, item.MediaType)
+		resURL := fmt.Sprintf("%s/%s/%d", XPRIME_BASE_URL, item.MediaType, item.ID)
 
 		results = append(results, core.SearchResult{
 			Title:  title,
@@ -74,23 +74,23 @@ func (b *Brocoflix) Search(query string) ([]core.SearchResult, error) {
 	return results, nil
 }
 
-func (b *Brocoflix) GetMediaID(urlStr string) (string, error) {
+func (x *XPrime) GetMediaID(urlStr string) (string, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return "", err
 	}
-	q := u.Query()
-	id := q.Get("id")
-	mediaType := q.Get("type")
-	
-	if id == "" || mediaType == "" {
-		return "", fmt.Errorf("invalid url")
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid xprime url")
 	}
+
+	mediaType := parts[0]
+	id := parts[1]
 
 	return fmt.Sprintf("%s:%s", mediaType, id), nil
 }
 
-func (b *Brocoflix) GetSeasons(mediaID string) ([]core.Season, error) {
+func (x *XPrime) GetSeasons(mediaID string) ([]core.Season, error) {
 	parts := strings.Split(mediaID, ":")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid media id format")
@@ -103,7 +103,7 @@ func (b *Brocoflix) GetSeasons(mediaID string) ([]core.Season, error) {
 	}
 
 	u := fmt.Sprintf("%s/tv/%s?api_key=%s", core.TMDB_BASE_URL, id, core.TMDB_API_KEY)
-	resp, err := b.Client.Get(u)
+	resp, err := x.Client.Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -129,24 +129,14 @@ func (b *Brocoflix) GetSeasons(mediaID string) ([]core.Season, error) {
 	return seasons, nil
 }
 
-func (b *Brocoflix) GetEpisodes(id string, isSeason bool) ([]core.Episode, error) {
+func (x *XPrime) GetEpisodes(id string, isSeason bool) ([]core.Episode, error) {
 	if !isSeason {
-		
-		servers := []core.Server{
+		return []core.Episode{
+			{Name: "VidLink", ID: "vidlink:" + id},
 			{Name: "VidSrc", ID: "vidsrc:" + id},
 			{Name: "MultiEmbed", ID: "multiembed:" + id},
-			{Name: "VidLink", ID: "vidlink:" + id},
 			{Name: "EmbedSu", ID: "embedsu:" + id},
-		}
-
-		var eps []core.Episode
-		for _, s := range servers {
-			eps = append(eps, core.Episode{
-				ID:   s.ID,
-				Name: s.Name,
-			})
-		}
-		return eps, nil
+		}, nil
 	}
 
 	parts := strings.Split(id, ":")
@@ -157,7 +147,7 @@ func (b *Brocoflix) GetEpisodes(id string, isSeason bool) ([]core.Episode, error
 	seasonNum := parts[2]
 
 	u := fmt.Sprintf("%s/tv/%s/season/%s?api_key=%s", core.TMDB_BASE_URL, showID, seasonNum, core.TMDB_API_KEY)
-	resp, err := b.Client.Get(u)
+	resp, err := x.Client.Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -180,17 +170,16 @@ func (b *Brocoflix) GetEpisodes(id string, isSeason bool) ([]core.Episode, error
 	return episodes, nil
 }
 
-func (b *Brocoflix) GetServers(episodeID string) ([]core.Server, error) {
-	servers := []core.Server{
+func (x *XPrime) GetServers(episodeID string) ([]core.Server, error) {
+	return []core.Server{
+		{Name: "VidLink", ID: "vidlink:" + episodeID},
 		{Name: "VidSrc", ID: "vidsrc:" + episodeID},
 		{Name: "MultiEmbed", ID: "multiembed:" + episodeID},
-		{Name: "VidLink", ID: "vidlink:" + episodeID},
 		{Name: "EmbedSu", ID: "embedsu:" + episodeID},
-	}
-	return servers, nil
+	}, nil
 }
 
-func (b *Brocoflix) GetLink(serverID string) (string, error) {
+func (x *XPrime) GetLink(serverID string) (string, error) {
 	parts := strings.Split(serverID, ":")
 	if len(parts) < 3 {
 		return "", fmt.Errorf("invalid server id")
@@ -212,9 +201,9 @@ func (b *Brocoflix) GetLink(serverID string) (string, error) {
 	switch serverName {
 	case "vidsrc":
 		if mediaType == "movie" {
-			embedLink = fmt.Sprintf("https://vidsrc.xyz/embed/movie/%s", tmdbID)
+			embedLink = fmt.Sprintf("https://vidsrc.me/embed/movie?tmdb=%s", tmdbID)
 		} else {
-			embedLink = fmt.Sprintf("https://vidsrc.xyz/embed/tv/%s/%s/%s", tmdbID, season, episode)
+			embedLink = fmt.Sprintf("https://vidsrc.me/embed/tv?tmdb=%s&sea=%s&epi=%s", tmdbID, season, episode)
 		}
 
 	case "multiembed":

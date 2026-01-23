@@ -3,6 +3,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,15 +20,21 @@ var (
 	episodeFlag   string
 	actionFlag    string
 	showImageFlag bool
+	backendFlag   string
+	cacheFlag     string
 )
 
-const USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+const USER_AGENT = "luffy/1.0.8"
 
 func init() {
 	rootCmd.Flags().IntVarP(&seasonFlag, "season", "s", 0, "Specify season number")
 	rootCmd.Flags().StringVarP(&episodeFlag, "episodes", "e", "", "Specify episode or range (e.g. 1, 1-5)")
 	rootCmd.Flags().StringVarP(&actionFlag, "action", "a", "", "Action to perform (play, download)")
 	rootCmd.Flags().BoolVar(&showImageFlag, "show-image", false, "Show poster preview using chafa")
+
+	rootCmd.AddCommand(previewCmd)
+	previewCmd.Flags().StringVar(&backendFlag, "backend", "sixel", "Image backend")
+	previewCmd.Flags().StringVar(&cacheFlag, "cache", "", "Cache directory")
 }
 
 var rootCmd = &cobra.Command{
@@ -50,6 +59,8 @@ var rootCmd = &cobra.Command{
 			provider = providers.NewBraflix(client)
 		} else if strings.EqualFold(cfg.Provider, "brocoflix") {
 			provider = providers.NewBrocoflix(client)
+		} else if strings.EqualFold(cfg.Provider, "xprime") {
+			provider = providers.NewXPrime(client)
 		} else {
 			provider = providers.NewFlixHQ(client)
 		}
@@ -85,7 +96,8 @@ var rootCmd = &cobra.Command{
 
 			cfg := core.LoadConfig()
 			cacheDir, _ := core.GetCacheDir()
-			previewCmd := fmt.Sprintf("chafa -f %s \"%s/$(echo {} | sed -E 's/^\\[.*\\] //' | sed -E 's/[^a-zA-Z0-9]+/_/g').jpg\"", cfg.ImageBackend, cacheDir)
+			exe, _ := os.Executable()
+			previewCmd := fmt.Sprintf("%s preview --backend %s --cache %s {}", exe, cfg.ImageBackend, cacheDir)
 			idx = core.SelectWithPreview("Results:", titles, previewCmd)
 		} else {
 			idx = core.Select("Results:", titles)
@@ -228,6 +240,10 @@ var rootCmd = &cobra.Command{
 				if decryptedReferer != "" {
 					referer = decryptedReferer
 				}
+
+				if strings.EqualFold(cfg.Provider, "sflix") || strings.EqualFold(cfg.Provider, "braflix") || strings.EqualFold(cfg.Provider, "xprime") {
+					referer = link
+				}
 			}
 
 			switch currentAction {
@@ -321,4 +337,31 @@ func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 	}
+}
+
+var previewCmd = &cobra.Command{
+	Use:    "preview [title]",
+	Short:  "Preview a poster for a title",
+	Hidden: true,
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			return
+		}
+		title := strings.Join(args, " ")
+
+		// Go's regex to strip prefix [Movie] or [Series]
+		rePrefix := regexp.MustCompile(`^\[.*\] `)
+		cleanTitle := rePrefix.ReplaceAllString(title, "")
+
+		// Go's regex to sanitize (match core/image.go)
+		reSanitize := regexp.MustCompile(`[^a-zA-Z0-9]+`)
+		safeTitle := reSanitize.ReplaceAllString(cleanTitle, "_")
+
+		fullPath := filepath.Join(cacheFlag, safeTitle+".jpg")
+
+		c := exec.Command("chafa", "-f", backendFlag, fullPath)
+		c.Stdout = os.Stdout
+		c.Stderr = os.Stderr
+		c.Run()
+	},
 }
