@@ -89,7 +89,7 @@ scoop install luffy
 If you have Go installed, you can easily install Luffy:
 
 ```bash
-go install github.com/demonkingswarn/luffy@v1.0.10
+go install github.com/demonkingswarn/luffy@v1.0.11
 ```
 
 ### 6. Build from Source
@@ -113,7 +113,7 @@ Install termux [(Guide)](https://termux.com/)
 ```sh
 pkg up -y
 pkg in golang fzf python-yt-dlp
-go install github.com/demonkingswarn/luffy@v1.0.10
+go install github.com/demonkingswarn/luffy@v1.0.11
 ```
 
 
@@ -212,6 +212,10 @@ Luffy uses four main providers, which you can easily change between by specifyin
 - movies4u (bollywood only):
     ```yaml
     provider: movies4u
+    ```
+- youtube:
+    ```yaml
+    provider: youtube
     ```
     **NOTE**: `brocoflix` & `xprime` doesn't return any subtitle urls, but their quality is much better.
 

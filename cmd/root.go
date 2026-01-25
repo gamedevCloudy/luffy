@@ -75,6 +75,8 @@ var rootCmd = &cobra.Command{
 			provider = providers.NewXPrime(client)
 		} else if strings.EqualFold(providerName, "movies4u") {
 			provider = providers.NewMovies4u(client)
+		} else if strings.EqualFold(providerName, "youtube") {
+			provider = providers.NewYouTube(client)
 		} else {
 			provider = providers.NewFlixHQ(client)
 		}
@@ -243,7 +245,7 @@ var rootCmd = &cobra.Command{
 				if !strings.HasPrefix(streamURL, "http") {
 					// Sometimes it might be missing http
 				}
-			} else if strings.EqualFold(providerName, "movies4u") {
+			} else if strings.EqualFold(providerName, "movies4u") || strings.EqualFold(providerName, "youtube") {
 				streamURL = link
 			} else {
 				if ctx.Debug {
