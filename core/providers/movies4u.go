@@ -104,25 +104,42 @@ func (m *Movies4u) GetEpisodes(id string, isSeason bool) ([]core.Episode, error)
 
 	var episodes []core.Episode
 
+	var bestLink string
+	var bestQuality int // 0: none, 1: 480p, 2: 720p, 3: 1080p
+
 	doc.Find("h5").Each(func(i int, sel *goquery.Selection) {
 		text := strings.TrimSpace(sel.Text())
-		if strings.Contains(text, "480p") || strings.Contains(text, "720p") || strings.Contains(text, "1080p") {
+		
+		var quality int
+		if strings.Contains(text, "1080p") {
+			quality = 3
+		} else if strings.Contains(text, "720p") {
+			quality = 2
+		} else if strings.Contains(text, "480p") {
+			quality = 1
+		}
+
+		if quality > 0 {
 			nextP := sel.NextFiltered("p")
 			link := nextP.Find("a").AttrOr("href", "")
 			
 			if link != "" && strings.Contains(link, "nexdrive.top") {
-				name := text
-				episodes = append(episodes, core.Episode{
-					ID:   link,
-					Name: name,
-				})
+				if quality > bestQuality {
+					bestQuality = quality
+					bestLink = link
+				}
 			}
 		}
 	})
 
-	if len(episodes) == 0 {
+	if bestLink == "" {
 		return nil, errors.New("no download links found")
 	}
+
+	episodes = append(episodes, core.Episode{
+		ID:   bestLink,
+		Name: "Full Movie",
+	})
 
 	return episodes, nil
 }

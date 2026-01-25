@@ -1,20 +1,32 @@
 #!/usr/bin/env bash
 
-platform=$(uname -s)
-arch=$(uname -m)
+test -d $PWD/builds || mkdir $PWD/builds
 
-if [[ "$platform" == "Linux" ]]; then
-  if [[ "$arch" == "aarch64" ]]; then
-    go build -ldflags="-s -w" -o luffy.aarch64
-    upx --best --lzma luffy.aarch64
-  else if [[ "$arch" == "riscv64" ]]; then
-    GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go build -ldflags="-s -w" -o luffy.rv64
-  else
-    go build -ldflags="-s -w" -o luffy.amd64
-    upx --best --lzma luffy.amd64
-  fi
+#platform=$(uname -s)
+#arch=$(uname -m)
+#
+#if [[ "$platform" == "Linux" ]]; then
+#  if [[ "$arch" == "aarch64" ]]; then
+#    go build -ldflags="-s -w" -o builds/luffy-linux-aarch64
+#    upx --best --lzma luffy.aarch64
+#  elif [["$arch" == "riscv64" ]]; then
+#    GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go build -ldflags="-s -w" -o builds/luffy-linux-rv64
+#  else
+#    go build -ldflags="-s -w" -o builds/luffy-linux-amd64
+#    upx --best --lzma builds/luffy-linux-amd64
+#  fi
+#else
+#  go build -o builds/luffy-macos-aarch64
+#fi
+
+build() {
+  local os=$1
+  local arch=$2
+  GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w" -o builds/$3
+}
+
+if [[ "$1" == "windows" ]]; then
+  build $1 $2 luffy-$1-$2.exe
 else
-  go build -o luffy-macos.aarch64
+  build $1 $2 luffy-$1-$2
 fi
-
-# GOOS=linux GOARCH=riscv64 CGO_ENABLED=0 go build -ldflags="-s -w" -o luffy.rv64

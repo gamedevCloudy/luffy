@@ -26,7 +26,7 @@ var (
 	debugFlag     bool
 )
 
-const USER_AGENT = "luffy/1.0.11"
+const USER_AGENT = "luffy/1.0.12"
 
 func init() {
 	rootCmd.Flags().IntVarP(&seasonFlag, "season", "s", 0, "Specify season number")
@@ -263,6 +263,21 @@ var rootCmd = &cobra.Command{
 
 				if strings.EqualFold(providerName, "sflix") || strings.EqualFold(providerName, "braflix") || strings.EqualFold(providerName, "xprime") {
 					referer = link
+				}
+			}
+
+			if strings.Contains(streamURL, ".m3u8") {
+				if ctx.Debug {
+					fmt.Println("Checking for best quality stream...")
+				}
+				best, err := core.GetBestQualityM3U8(streamURL, ctx.Client)
+				if err == nil {
+					if ctx.Debug && best != streamURL {
+						fmt.Printf("Upgraded quality: %s\n", best)
+					}
+					streamURL = best
+				} else if ctx.Debug {
+					fmt.Printf("Failed to parse m3u8: %v\n", err)
 				}
 			}
 
